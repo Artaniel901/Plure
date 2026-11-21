@@ -270,7 +270,16 @@ export function CooDashboardView(props: CooDashboardViewProps) {
                   }}
                 >
                   <SelectTrigger id="coo-project" name="project" className="w-full sm:max-w-xl">
-                    <SelectValue placeholder={gt("Choose a repository")} />
+                    <SelectValue placeholder={gt("Choose a repository")}>
+                      {selectedProject ? (
+                        <span className="min-w-0">
+                          <span className="block truncate">{selectedProject.title}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {selectedProject.workspaceRoot}
+                          </span>
+                        </span>
+                      ) : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
                     {props.projects.map((project) => (

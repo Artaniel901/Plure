@@ -133,6 +133,15 @@ it("shows provider setup guidance when no compatible provider is ready", async (
   expect(onOpenProviders).toHaveBeenCalledOnce();
 });
 
+it("shows the repository title instead of its internal environment and project ids", async () => {
+  await using screen = await render(<CooDashboardView {...props()} />);
+  const trigger = screen.getByRole("combobox", { name: "Repository" });
+
+  const text = trigger.element().textContent;
+  expect(text).toContain("Storefront");
+  expect(text).not.toContain("env-1");
+});
+
 it("requires an objective before launching", async () => {
   const onLaunch = vi.fn(async (_input: CooLaunchInput) => undefined);
   await using screen = await render(<CooDashboardView {...props({ onLaunch })} />);
