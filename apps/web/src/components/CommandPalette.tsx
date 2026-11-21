@@ -83,6 +83,7 @@ import {
   SquarePenIcon,
   TextSearchIcon,
   UserPlusIcon,
+  WorkflowIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
 import { dispatchPreviewAction } from "./preview/previewActionBus";
@@ -1746,6 +1747,17 @@ function OpenCommandPaletteDialog(props: {
             ? paletteRouteTarget.threadRef.environmentId
             : null),
       );
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:coo",
+    searchTerms: ["coo", "orchestration", "orchestrator", "delegate", "devin", "kimi"],
+    title: gt("Open COO orchestration"),
+    icon: <WorkflowIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/coo" });
     },
   });
 

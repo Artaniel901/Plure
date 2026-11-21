@@ -1,4 +1,10 @@
-import { ArrowLeftIcon, ArrowRightIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ChartNoAxesColumnIcon,
+  SettingsIcon,
+  WorkflowIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { T, useGT } from "gt-react";
 import { memo } from "react";
@@ -251,6 +257,10 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
     closeMobileSidebar();
     void navigate({ to: "/issues", search: readIssueListPreferences() });
   };
+  const handleCooClick = () => {
+    closeMobileSidebar();
+    void navigate({ to: "/coo" });
+  };
   const handleSettingsClick = () => {
     closeMobileSidebar();
     void navigate({ to: "/settings" });
@@ -281,6 +291,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
         </SidebarMenuItem>
       ) : (
         <>
+          <SidebarUtilityItem
+            icon={<WorkflowIcon />}
+            label={gt("COO orchestration")}
+            onClick={handleCooClick}
+          />
           <SidebarUtilityItem
             icon={<SettingsIcon />}
             label={gt("Settings")}

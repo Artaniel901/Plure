@@ -4,9 +4,14 @@ import { GUEST_PAGE_PATH } from "../../guestPage";
 import { withoutAssistantCitationHash } from "../../lib/assistantCitationNavigation";
 import { resolveThreadRouteTarget, type ThreadRouteTarget } from "../../threadRoutes";
 
-/** Settings and Usage open as modals over the last main-app view. */
+/** Settings, Usage, and COO open as modals over the last main-app view. */
 export function isAppModalPage(pathname: string) {
-  return pathname === "/settings" || pathname.startsWith("/settings/") || pathname === "/usage";
+  return (
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/") ||
+    pathname === "/usage" ||
+    pathname === "/coo"
+  );
 }
 
 export function isSidebarUtilityPage(pathname: string) {
@@ -46,7 +51,7 @@ export function startMainAppLocationTracking(router: AnyRouter): () => void {
   return router.subscribe("onResolved", record);
 }
 
-/** The thread Settings or Usage opened over, for views mounted while the modal is open. */
+/** The thread Settings, Usage, or COO opened over, for views mounted while the modal is open. */
 export function getAppModalReturnThreadTarget() {
   return appModalReturnThreadTarget;
 }
@@ -56,7 +61,7 @@ export function useNavigateToMainApp() {
   return () => navigate({ href: mainAppHref ?? "/" });
 }
 
-/** Leaves Settings or Usage for the page that opened it. */
+/** Leaves Settings, Usage, or COO for the page that opened it. */
 export function useCloseAppModal() {
   const navigate = useNavigate();
   const router = useRouter();
