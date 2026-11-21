@@ -25,10 +25,12 @@ export function placeLinkedPrompt(
   target: ComposerThreadTarget,
   prompt: LinkedPrompt,
   notes: ReadonlyArray<string> = [],
+  onPlaced?: () => void,
 ): void {
   warnAboutHiddenCharacters(prompt);
   const place = () => {
     useComposerDraftStore.getState().setPrompt(target, prompt.text);
+    onPlaced?.();
     toastManager.add({
       type: "info",
       title: m(msg("Prompt added from a link")),

@@ -551,11 +551,17 @@ export function CooDashboard() {
     }
     const opened = await handleNewThread(selectedProject.ref);
     if (opened === null) throw new Error(m(msg("Could not open COO draft")));
-    useComposerDraftStore.getState().setModelSelection(opened.draftId, input.coordinator, {
-      explicit: true,
-      replaceOptions: true,
-    });
-    placeLinkedPrompt(opened.draftId, { text: buildCooPrompt(input), hiddenCharacters: 0 });
+    placeLinkedPrompt(
+      opened.draftId,
+      { text: buildCooPrompt(input), hiddenCharacters: 0 },
+      [],
+      () => {
+        useComposerDraftStore.getState().setModelSelection(opened.draftId, input.coordinator, {
+          explicit: true,
+          replaceOptions: true,
+        });
+      },
+    );
   };
 
   return (
