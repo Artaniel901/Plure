@@ -1,0 +1,253 @@
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { after, before, describe, it } from "node:test";
+
+import { createPlureServer, type PlureServerHandle } from "../src/server/app.ts";
+
+describe("Plure clean-room orchestration server", () => {
+  let tmpRoot = "";
+  let repoDir = "";
+  let dataDir = "";
+  let handle: PlureServerHandle;
+  let baseUrl = "";
+  let sessionCookie = "";
+
+  before(async () => {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "plure-test-"));
+    repoDir = path.join(tmpRoot, "sample-repo");
+    dataDir = path.join(tmpRoot, "data");
+    fs.mkdirSync(repoDir, { recursive: true });
+
+    execFileSync("git", ["init", "-b", "main"], { cwd: repoDir });
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const sum = (a: number, b: number) => a + b;\n");
+    execFileSync("git", ["add", "app.ts"], { cwd: repoDir });
+    execFileSync(
+      "git",
+      ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "init"],
+      { cwd: repoDir },
+    );
+    fs.writeFileSync(
+      path.join(repoDir, "app.ts"),
+      "export const sum = (a: number, b: number) => a + b;\nexport const mul = (a: number, b: number) => a * b;\n",
+    );
+
+    handle = await createPlureServer({
+      host: "127.0.0.1",
+      port: 0,
+      dataDir,
+      allowedRoots: [tmpRoot],
+    });
+    baseUrl = `http://127.0.0.1:${handle.port}`;
+  });
+
+  after(async () => {
+    await handle?.close();
+    if (tmpRoot && fs.existsSync(tmpRoot)) {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks unauthenticated API access with 401", async () => {
+    const res = await fetch(`${baseUrl}/api/state`);
+    assert.equal(res.status, 401);
+  });
+
+  it("enforces X-Plure-Request CSRF header on mutations", async () => {
+    const res = await fetch(`${baseUrl}/api/auth/pair`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: handle.bootstrapToken }),
+    });
+    assert.equal(res.status, 403);
+  });
+
+  it("rejects invalid pairing tokens and issues an HttpOnly session cookie for valid token", async () => {
+    const bad = await fetch(`${baseUrl}/api/auth/pair`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ token: "wrong-token-value" }),
+    });
+    assert.equal(bad.status, 401);
+
+    const good = await fetch(`${baseUrl}/api/auth/pair`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ token: handle.bootstrapToken, deviceLabel: "Test Phone" }),
+    });
+    assert.equal(good.status, 200);
+    const setCookie = good.headers.get("set-cookie") ?? "";
+    assert.match(setCookie, /plure_session=/);
+    assert.match(setCookie, /HttpOnly/i);
+    sessionCookie = setCookie.split(";")[0] ?? "";
+  });
+
+  it("defaults COO to Devin Kimi K3.1 Pro Max and supports live role model switching", async () => {
+    const stateRes = await fetch(`${baseUrl}/api/state`, {
+      headers: { Cookie: sessionCookie },
+    });
+    assert.equal(stateRes.status, 200);
+    const state = (await stateRes.json()) as {
+      roles: Record<string, { providerId: string; model: string }>;
+    };
+
+    assert.equal(state.roles.coo.providerId, "devin");
+    assert.equal(state.roles.coo.model, "kimi-k3.1-pro-max");
+    assert.equal(state.roles.implementer.providerId, "claude");
+    assert.equal(state.roles.researcher.providerId, "antigravity");
+
+    const switchRes = await fetch(`${baseUrl}/api/roles`, {
+      method: "PATCH",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({
+        role: "implementer",
+        providerId: "claude",
+        model: "claude-opus-4-6",
+      }),
+    });
+    assert.equal(switchRes.status, 200);
+    const updated = (await switchRes.json()) as {
+      roles: Record<string, { providerId: string; model: string }>;
+    };
+    assert.equal(updated.roles.implementer.model, "claude-opus-4-6");
+  });
+
+  it("validates repository boundaries and reads real git status and file diffs", async () => {
+    const outsideRes = await fetch(`${baseUrl}/api/workspaces`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ path: path.parse(tmpRoot).root, label: "RootForbidden" }),
+    });
+    assert.equal(outsideRes.status, 400);
+
+    const addRes = await fetch(`${baseUrl}/api/workspaces`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ path: repoDir, label: "Sample Repo" }),
+    });
+    assert.equal(addRes.status, 201);
+    const added = (await addRes.json()) as {
+      workspace: { id: string; branch: string; changedFiles: Array<{ path: string; status: string }> };
+    };
+    assert.equal(added.workspace.branch, "main");
+    assert.equal(added.workspace.changedFiles.length, 1);
+    assert.equal(added.workspace.changedFiles[0]?.path, "app.ts");
+
+    const diffRes = await fetch(
+      `${baseUrl}/api/workspaces/${added.workspace.id}/diff?file=${encodeURIComponent("app.ts")}`,
+      { headers: { Cookie: sessionCookie } },
+    );
+    assert.equal(diffRes.status, 200);
+    const diffPayload = (await diffRes.json()) as { diff: string };
+    assert.match(diffPayload.diff, /\+export const mul/);
+  });
+
+  it("runs a COO mission with worker delegation packets and supports mid-mission model switching", async () => {
+    const stateRes = await fetch(`${baseUrl}/api/state`, { headers: { Cookie: sessionCookie } });
+    const state = (await stateRes.json()) as { workspaces: Array<{ id: string }> };
+    const workspaceId = state.workspaces[0]!.id;
+
+    const missionRes = await fetch(`${baseUrl}/api/missions`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({
+        workspaceId,
+        objective: "Tambahkan unit test untuk fungsi mul di app.ts dan audit edge case",
+        executionMode: "plan",
+      }),
+    });
+    assert.equal(missionRes.status, 201);
+    const created = (await missionRes.json()) as {
+      mission: {
+        id: string;
+        cooModel: string;
+        steps: Array<{ role: string; providerId: string; model: string; status: string }>;
+      };
+    };
+    assert.equal(created.mission.cooModel, "kimi-k3.1-pro-max");
+    assert.equal(created.mission.steps.length, 4);
+    assert.deepEqual(
+      created.mission.steps.map((s) => s.role),
+      ["coo", "researcher", "implementer", "coo"],
+    );
+
+    const switchMidRes = await fetch(`${baseUrl}/api/missions/${created.mission.id}/model`, {
+      method: "PATCH",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({
+        role: "coo",
+        providerId: "claude",
+        model: "claude-opus-4-6",
+      }),
+    });
+    assert.equal(switchMidRes.status, 200);
+    const switched = (await switchMidRes.json()) as {
+      mission: { cooProviderId: string; cooModel: string };
+    };
+    assert.equal(switched.mission.cooProviderId, "claude");
+    assert.equal(switched.mission.cooModel, "claude-opus-4-6");
+  });
+
+  it("mints one-time mobile pairing codes that work once and cannot be reused", async () => {
+    const inviteRes = await fetch(`${baseUrl}/api/auth/invite`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ label: "HP Android" }),
+    });
+    assert.equal(inviteRes.status, 201);
+    const invite = (await inviteRes.json()) as { code: string };
+    assert.ok(invite.code.length >= 12);
+
+    const firstUse = await fetch(`${baseUrl}/api/auth/pair`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ token: invite.code, deviceLabel: "HP Android" }),
+    });
+    assert.equal(firstUse.status, 200);
+
+    const replayUse = await fetch(`${baseUrl}/api/auth/pair`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ token: invite.code, deviceLabel: "Replay Attacker" }),
+    });
+    assert.equal(replayUse.status, 401);
+  });
+});

@@ -1,0 +1,16 @@
+{
+  "name": "plure",
+  "version": "1.0.0",
+  "description": "Plure: Multi-AI Repository Orchestration Studio (Devin Kimi COO, Claude, Antigravity) for Desktop and Mobile Web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node dist/server/main.ts",
+    "dev": "node src/server/main.ts",
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/plure.test.ts"
+  }
+}
