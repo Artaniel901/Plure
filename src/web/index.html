@@ -304,11 +304,17 @@
           </button>
         </div>
         <p class="muted-copy">
-          Generate a single-use pairing code (valid for 15 minutes). On iOS (Safari: Share &gt; Add to Home Screen) or Android (Chrome: Install App), Plure installs as a full-screen standalone app. Use Tailscale for remote cellular access or <code>--lan</code> on local Wi-Fi.
+          Start a built-in Cloudflare HTTPS Tunnel so your phone connects over 4G/5G from anywhere with zero VPN or Tailscale needed. On iOS (Safari: Share &gt; Add to Home Screen) or Android (Chrome: Install App), Plure installs as a full-screen standalone app.
         </p>
+        <div id="tunnel-status-box" class="invite-output" aria-live="polite">
+          Cloudflare Tunnel: Offline
+        </div>
         <div class="form-actions">
+          <button type="button" id="btn-toggle-tunnel" class="btn btn-secondary">
+            Go Online (Cloudflare Tunnel)
+          </button>
           <button type="button" id="btn-generate-invite" class="btn btn-primary">
-            Generate One-Time Phone Code
+            Generate One-Time Phone Link
           </button>
         </div>
         <div id="invite-output" class="invite-output" aria-live="polite" hidden></div>

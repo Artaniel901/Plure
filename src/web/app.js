@@ -7,6 +7,7 @@ const state = {
   providers: [],
   workspaces: [],
   missions: [],
+  tunnel: { status: "offline", publicUrl: null, binaryFound: false, error: null },
   selectedWorkspaceId: "",
   theme: localStorage.getItem("plure_theme") === "light" ? "light" : "dark",
 };
@@ -352,6 +353,45 @@ function connectEvents() {
     state.missions = state.missions.map((m) => (m.id === mission.id ? mission : m));
     renderMissions();
   });
+  source.addEventListener("tunnel_updated", (ev) => {
+    const { tunnel } = JSON.parse(ev.data);
+    state.tunnel = tunnel;
+    renderTunnelStatus();
+  });
+}
+
+function renderTunnelStatus() {
+  const box = el("tunnel-status-box");
+  const btn = el("btn-toggle-tunnel");
+  const openPairBtn = el("btn-open-pair-modal");
+  const t = state.tunnel || { status: "offline", publicUrl: null, error: null };
+
+  if (t.status === "online" && t.publicUrl) {
+    box.replaceChildren();
+    const label = document.createElement("p");
+    label.textContent = "Cloudflare HTTPS Tunnel: Online (4G/5G Ready)";
+    const urlCode = document.createElement("code");
+    urlCode.className = "cmd-snippet";
+    urlCode.textContent = t.publicUrl;
+    box.append(label, urlCode);
+    btn.textContent = "Stop Cloudflare Tunnel";
+    btn.disabled = false;
+    openPairBtn.textContent = "Connect Phone (Online)";
+  } else if (t.status === "starting") {
+    box.textContent = "Cloudflare Tunnel: Starting public HTTPS tunnel...";
+    btn.textContent = "Starting...";
+    btn.disabled = true;
+  } else if (t.status === "error") {
+    box.textContent = `Cloudflare Tunnel Error: ${t.error || "Unable to start tunnel."}`;
+    btn.textContent = "Retry Cloudflare Tunnel";
+    btn.disabled = false;
+    openPairBtn.textContent = "Connect Phone";
+  } else {
+    box.textContent = "Cloudflare Tunnel: Offline (Local only until enabled)";
+    btn.textContent = "Go Online (Cloudflare Tunnel)";
+    btn.disabled = false;
+    openPairBtn.textContent = "Connect Phone";
+  }
 }
 
 async function loadDashboardState() {
@@ -367,11 +407,13 @@ async function loadDashboardState() {
     state.providers = data.providers;
     state.workspaces = data.workspaces;
     state.missions = data.missions;
+    state.tunnel = data.tunnel || state.tunnel;
     el("global-loading").hidden = true;
     renderRoleSelectors();
     renderWorkspaces();
     renderProviders();
     renderMissions();
+    renderTunnelStatus();
     connectEvents();
   } catch (err) {
     el("global-loading").hidden = true;
@@ -584,6 +626,26 @@ function bindEvents() {
     pairDialog.close();
   });
 
+  el("btn-toggle-tunnel").addEventListener("click", async () => {
+    const isOnline = state.tunnel && state.tunnel.status === "online";
+    const endpoint = isOnline ? "/api/tunnel/stop" : "/api/tunnel/start";
+    el("btn-toggle-tunnel").disabled = true;
+    try {
+      const res = await apiRequest(endpoint, { method: "POST", body: JSON.stringify({}) });
+      state.tunnel = res.tunnel;
+      backdrop.pulse("researcher");
+      renderTunnelStatus();
+    } catch (err) {
+      state.tunnel = {
+        status: "error",
+        publicUrl: null,
+        binaryFound: false,
+        error: err instanceof Error ? err.message : "Failed to toggle Cloudflare Tunnel.",
+      };
+      renderTunnelStatus();
+    }
+  });
+
   el("btn-generate-invite").addEventListener("click", async () => {
     const out = el("invite-output");
     try {
@@ -596,7 +658,16 @@ function bindEvents() {
       const codeP = document.createElement("p");
       codeP.textContent = `Single-use pairing code: ${invite.code}`;
       out.append(codeP);
-      if (invite.lanUrls && invite.lanUrls.length > 0) {
+
+      if (invite.publicPairUrl) {
+        const pubHint = document.createElement("p");
+        pubHint.className = "field-hint";
+        pubHint.textContent = "Open this HTTPS link on your phone (4G/5G or Wi-Fi, no VPN needed):";
+        const pubEl = document.createElement("code");
+        pubEl.className = "cmd-snippet";
+        pubEl.textContent = invite.publicPairUrl;
+        out.append(pubHint, pubEl);
+      } else if (invite.lanUrls && invite.lanUrls.length > 0) {
         for (const url of invite.lanUrls) {
           const codeEl = document.createElement("code");
           codeEl.className = "cmd-snippet";
@@ -607,7 +678,7 @@ function bindEvents() {
         const note = document.createElement("p");
         note.className = "field-hint";
         note.textContent =
-          "Start the server with --lan for local Wi-Fi, or open your PC's Tailscale URL with the code above.";
+          "Click Go Online (Cloudflare Tunnel) above to generate a public HTTPS link for 4G/5G access.";
         out.append(note);
       }
     } catch (err) {

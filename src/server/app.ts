@@ -18,6 +18,12 @@ import {
   type AgentRole,
 } from "./providers.ts";
 import { PlureStore } from "./store.ts";
+import {
+  defaultCloudflaredLauncher,
+  resolveCloudflaredBinary,
+  type TunnelLauncher,
+  type TunnelSnapshot,
+} from "./tunnel.ts";
 
 export interface PlureServerOptions {
   readonly host?: string;
@@ -26,6 +32,8 @@ export interface PlureServerOptions {
   readonly allowedRoots?: ReadonlyArray<string>;
   readonly staticDir?: string;
   readonly seedWorkspacePath?: string;
+  readonly tunnelLauncher?: TunnelLauncher;
+  readonly startOnline?: boolean;
 }
 
 export interface PlureServerHandle {
@@ -33,6 +41,9 @@ export interface PlureServerHandle {
   readonly host: string;
   readonly bootstrapToken: string;
   readonly networkAddresses: ReadonlyArray<string>;
+  readonly getTunnel: () => TunnelSnapshot;
+  readonly startTunnel: () => Promise<TunnelSnapshot>;
+  readonly stopTunnel: () => Promise<TunnelSnapshot>;
   readonly close: () => Promise<void>;
 }
 
@@ -141,6 +152,65 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
   };
 
   let boundPort = options.port ?? 0;
+  const tunnelLauncher = options.tunnelLauncher ?? defaultCloudflaredLauncher;
+  let activeTunnelStop: (() => Promise<void>) | null = null;
+  let tunnelState: TunnelSnapshot = {
+    status: "offline",
+    publicUrl: null,
+    binaryFound: options.tunnelLauncher !== undefined || resolveCloudflaredBinary() !== null,
+    error: null,
+  };
+
+  const failedPairByIp = new Map<string, { count: number; resetAt: number }>();
+
+  const startTunnelInternal = async (): Promise<TunnelSnapshot> => {
+    if (tunnelState.status === "online" && tunnelState.publicUrl) {
+      return tunnelState;
+    }
+    tunnelState = {
+      status: "starting",
+      publicUrl: null,
+      binaryFound: tunnelState.binaryFound,
+      error: null,
+    };
+    broadcast("tunnel_updated", { tunnel: tunnelState });
+    try {
+      const launched = await tunnelLauncher(boundPort);
+      activeTunnelStop = launched.stop;
+      tunnelState = {
+        status: "online",
+        publicUrl: launched.publicUrl,
+        binaryFound: true,
+        error: null,
+      };
+      broadcast("tunnel_updated", { tunnel: tunnelState });
+      return tunnelState;
+    } catch (err) {
+      tunnelState = {
+        status: "error",
+        publicUrl: null,
+        binaryFound: tunnelState.binaryFound,
+        error: err instanceof Error ? err.message : "Failed to start Cloudflare Tunnel.",
+      };
+      broadcast("tunnel_updated", { tunnel: tunnelState });
+      return tunnelState;
+    }
+  };
+
+  const stopTunnelInternal = async (): Promise<TunnelSnapshot> => {
+    if (activeTunnelStop) {
+      await activeTunnelStop();
+      activeTunnelStop = null;
+    }
+    tunnelState = {
+      status: "offline",
+      publicUrl: null,
+      binaryFound: tunnelState.binaryFound,
+      error: null,
+    };
+    broadcast("tunnel_updated", { tunnel: tunnelState });
+    return tunnelState;
+  };
 
   const buildHydratedWorkspaces = () => {
     return store.listWorkspaces().map((ws) => {
@@ -187,6 +257,20 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
         }
 
         if (pathname === "/api/auth/pair" && method === "POST") {
+          const clientIp =
+            (typeof req.headers["cf-connecting-ip"] === "string" &&
+              req.headers["cf-connecting-ip"]) ||
+            req.socket.remoteAddress ||
+            "unknown";
+          const nowMs = Date.now();
+          const entry = failedPairByIp.get(clientIp);
+          if (entry && entry.resetAt > nowMs && entry.count >= 6) {
+            sendJson(res, 429, {
+              error: "Too many failed pairing attempts. Wait 5 minutes before trying again.",
+            });
+            return;
+          }
+
           const body = await readJsonBody(req);
           const candidate = typeof body.token === "string" ? body.token.trim() : "";
           const label = typeof body.deviceLabel === "string" ? body.deviceLabel.trim() : "Browser";
@@ -194,17 +278,25 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
           const matchedInvite = !matchedBootstrap && candidate.length > 0 && store.consumeInvite(candidate);
 
           if (!matchedBootstrap && !matchedInvite) {
+            const currentCount = entry && entry.resetAt > nowMs ? entry.count + 1 : 1;
+            failedPairByIp.set(clientIp, {
+              count: currentCount,
+              resetAt: nowMs + 5 * 60 * 1000,
+            });
             sendJson(res, 401, { error: "Invalid or expired pairing code." });
             return;
           }
 
+          failedPairByIp.delete(clientIp);
           const sessionToken = store.createSession(label);
+          const isHttps = req.headers["x-forwarded-proto"] === "https";
+          const secureFlag = isHttps ? "; Secure" : "";
           sendJson(
             res,
             200,
             { ok: true },
             {
-              "Set-Cookie": `plure_session=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`,
+              "Set-Cookie": `plure_session=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; SameSite=Strict${secureFlag}; Max-Age=2592000`,
             },
           );
           return;
@@ -238,9 +330,22 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
             providers,
             workspaces,
             missions,
+            tunnel: tunnelState,
             networkAddresses: listLanAddresses(boundPort),
             allowedRoots,
           });
+          return;
+        }
+
+        if (pathname === "/api/tunnel/start" && method === "POST") {
+          const tunnel = await startTunnelInternal();
+          sendJson(res, tunnel.status === "error" ? 500 : 200, { tunnel });
+          return;
+        }
+
+        if (pathname === "/api/tunnel/stop" && method === "POST") {
+          const tunnel = await stopTunnelInternal();
+          sendJson(res, 200, { tunnel });
           return;
         }
 
@@ -248,9 +353,13 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
           const body = await readJsonBody(req);
           const label = typeof body.label === "string" ? body.label.trim() : "Mobile Device";
           const invite = store.createInvite(label);
+          const publicPairUrl = tunnelState.publicUrl
+            ? `${tunnelState.publicUrl}/#pair=${encodeURIComponent(invite.code)}`
+            : null;
           sendJson(res, 201, {
             code: invite.code,
             expiresAt: invite.expiresAt,
+            publicPairUrl,
             lanUrls: listLanAddresses(boundPort).map(
               (origin) => `${origin}/#pair=${encodeURIComponent(invite.code)}`,
             ),
@@ -476,12 +585,20 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
   const addr = server.address();
   boundPort = typeof addr === "object" && addr ? addr.port : (options.port ?? 4310);
 
+  if (options.startOnline) {
+    await startTunnelInternal();
+  }
+
   return {
     port: boundPort,
     host,
     bootstrapToken,
     networkAddresses: listLanAddresses(boundPort),
+    getTunnel: () => tunnelState,
+    startTunnel: startTunnelInternal,
+    stopTunnel: stopTunnelInternal,
     close: async () => {
+      await stopTunnelInternal();
       for (const client of sseClients) {
         client.end();
       }

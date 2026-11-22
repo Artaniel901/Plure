@@ -20,10 +20,10 @@ Plure is a standalone, clean-room multi-AI repository orchestration web app and 
 cd D:\reverse-engineering\workspace\plure
 npm test
 npm run build
-npm start -- --lan
+npm start -- --online
 ```
 
-Open the printed local pairing URL once in your desktop browser. To connect and install on your phone, click **Connect Phone** in the top bar (use local Wi-Fi with `--lan`, or Tailscale for remote cellular access anywhere).
+`--online` automatically starts a built-in **Cloudflare HTTPS Tunnel** (`*.trycloudflare.com`) and prints a single-use phone pairing URL that works over 4G/5G from anywhere without Tailscale or port forwarding. You can also start and stop Cloudflare Tunnel live from **Connect Phone** inside the dashboard.
 
 ## Host CLI Subscriptions
 

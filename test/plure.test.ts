@@ -39,6 +39,10 @@ describe("Plure clean-room orchestration server", () => {
       port: 0,
       dataDir,
       allowedRoots: [tmpRoot],
+      tunnelLauncher: async () => ({
+        publicUrl: "https://demo-plure.trycloudflare.com",
+        stop: async () => undefined,
+      }),
     });
     baseUrl = `http://127.0.0.1:${handle.port}`;
   });
@@ -249,5 +253,68 @@ describe("Plure clean-room orchestration server", () => {
       body: JSON.stringify({ token: invite.code, deviceLabel: "Replay Attacker" }),
     });
     assert.equal(replayUse.status, 401);
+  });
+
+  it("manages Cloudflare Tunnel start/stop and includes HTTPS tunnel URL in mobile invites", async () => {
+    const startRes = await fetch(`${baseUrl}/api/tunnel/start`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({}),
+    });
+    assert.equal(startRes.status, 200);
+    const started = (await startRes.json()) as {
+      tunnel: { status: string; publicUrl: string | null };
+    };
+    assert.equal(started.tunnel.status, "online");
+    assert.equal(started.tunnel.publicUrl, "https://demo-plure.trycloudflare.com");
+
+    const inviteRes = await fetch(`${baseUrl}/api/auth/invite`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({ label: "iPhone Safari" }),
+    });
+    const invite = (await inviteRes.json()) as { publicPairUrl: string | null };
+    assert.match(invite.publicPairUrl ?? "", /^https:\/\/demo-plure\.trycloudflare\.com\/#pair=/);
+
+    const stopRes = await fetch(`${baseUrl}/api/tunnel/stop`, {
+      method: "POST",
+      headers: {
+        Cookie: sessionCookie,
+        "Content-Type": "application/json",
+        "X-Plure-Request": "1",
+      },
+      body: JSON.stringify({}),
+    });
+    assert.equal(stopRes.status, 200);
+    const stopped = (await stopRes.json()) as {
+      tunnel: { status: string; publicUrl: string | null };
+    };
+    assert.equal(stopped.tunnel.status, "offline");
+    assert.equal(stopped.tunnel.publicUrl, null);
+  });
+
+  it("rate-limits repeated failed pairing attempts with 429", async () => {
+    let lastStatus = 0;
+    for (let i = 0; i < 8; i += 1) {
+      const res = await fetch(`${baseUrl}/api/auth/pair`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Plure-Request": "1",
+          "CF-Connecting-IP": "203.0.113.77",
+        },
+        body: JSON.stringify({ token: `bad-${i}` }),
+      });
+      lastStatus = res.status;
+    }
+    assert.equal(lastStatus, 429);
   });
 });
