@@ -6,6 +6,7 @@ import path from "node:path";
 import { after, before, describe, it } from "node:test";
 
 import { createPlureServer, type PlureServerHandle } from "../src/server/app.ts";
+import { resolveTunnelSpawnSpec } from "../src/server/tunnel.ts";
 
 describe("Plure clean-room orchestration server", () => {
   let tmpRoot = "";
@@ -316,5 +317,41 @@ describe("Plure clean-room orchestration server", () => {
       lastStatus = res.status;
     }
     assert.equal(lastStatus, 429);
+  });
+
+  it("prefers Named Cloudflare Tunnel (token or config) over temporary Quick Tunnel", () => {
+    const tokenSpec = resolveTunnelSpawnSpec(4310, {
+      PLURE_CF_TUNNEL_TOKEN: "eyJ_sample_token",
+      PLURE_CF_PUBLIC_URL: "https://plure.example.com/",
+    });
+    assert.equal(tokenSpec.mode, "named-token");
+    assert.equal(tokenSpec.configuredPublicUrl, "https://plure.example.com");
+    assert.deepEqual(tokenSpec.args, [
+      "tunnel",
+      "--no-autoupdate",
+      "run",
+      "--token",
+      "eyJ_sample_token",
+    ]);
+
+    const namedSpec = resolveTunnelSpawnSpec(4310, {
+      PLURE_CF_TUNNEL_NAME: "plure-prod",
+      PLURE_CF_CONFIG_PATH: "C:\\Users\\fauza\\.cloudflared\\plure.yml",
+      PLURE_CF_PUBLIC_URL: "https://plure.example.com",
+    });
+    assert.equal(namedSpec.mode, "named-config");
+    assert.equal(namedSpec.configuredPublicUrl, "https://plure.example.com");
+    assert.deepEqual(namedSpec.args, [
+      "tunnel",
+      "--config",
+      "C:\\Users\\fauza\\.cloudflared\\plure.yml",
+      "--no-autoupdate",
+      "run",
+      "plure-prod",
+    ]);
+
+    const quickSpec = resolveTunnelSpawnSpec(4310, {});
+    assert.equal(quickSpec.mode, "quick");
+    assert.equal(quickSpec.configuredPublicUrl, null);
   });
 });

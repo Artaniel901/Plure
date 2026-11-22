@@ -1,6 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { createPlureServer } from "./app.ts";
+
+if (fs.existsSync(path.resolve(process.cwd(), ".env"))) {
+  process.loadEnvFile(path.resolve(process.cwd(), ".env"));
+}
 
 const args = process.argv.slice(2);
 const startOnline = args.includes("--online") || process.env.PLURE_ONLINE === "1";
