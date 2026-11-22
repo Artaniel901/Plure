@@ -360,11 +360,11 @@ export class PlureStore {
         missionId,
         current.steps.length + 1,
         role,
-        `Pergantian model langsung (${role.toUpperCase()})`,
+        `Live model switch (${role.toUpperCase()})`,
         providerId,
         model,
         "completed",
-        `Model peran ${role.toUpperCase()} dialihkan secara langsung ke ${providerId} · ${model} untuk giliran berikutnya.`,
+        `Switched ${role.toUpperCase()} role live to ${providerId} (${model}) for subsequent turns.`,
         now,
       );
 

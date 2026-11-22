@@ -1,20 +1,20 @@
 # Plure
 
-Plure adalah aplikasi web dan dashboard orkestrasi coding multi-AI mandiri (*100% original clean-room codebase*) untuk mengendalikan agen coding lokal dari PC maupun HP:
+Plure is a standalone, clean-room multi-AI repository orchestration web app and installable Progressive Web App (PWA) built from scratch with zero external npm dependencies:
 
-- **COO (Koordinator Utama):** Devin CLI dengan default **Kimi K3.1 Pro Max** (`kimi-k3.1-pro-max`), dapat diganti langsung ke model lain kapan saja.
-- **Implementer Kode:** Claude Code (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5`).
-- **Riset dan Audit:** Antigravity (`gemini-2.5-pro`, `hydrogen-medium`, `gemini-2.5-flash`).
-- **Live Model Switchboard:** Ubah provider dan model secara langsung baik sebelum maupun di tengah jalannya misi, disinkronkan secara *real-time* lewat Server-Sent Events (SSE).
-- **Inspektur Repository Git:** Pantau branch, daftar file berubah, dan baca `git diff` langsung dari browser PC atau HP pada repository yang diizinkan.
-- **Akses Aman dari HP:** Autentikasi sesi `HttpOnly` berbasis kode pairing sekali pakai (kompatibel dengan jaringan Wi-Fi lokal `--lan` maupun Tailscale) tanpa pernah menyimpan atau mengirim API key ke browser.
+- **COO Coordinator:** Devin CLI defaulting to **Kimi K3.1 Pro Max** (`kimi-k3.1-pro-max`), switchable live at any time.
+- **Code Implementer:** Claude Code (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5`).
+- **Research & Review:** Antigravity (`gemini-2.5-pro`, `hydrogen-medium`, `gemini-2.5-flash`).
+- **Live Model Switchboard:** Switch providers and models both before dispatching and mid-mission, synchronized in real time over Server-Sent Events (SSE).
+- **Git Repository & Diff Inspector:** Monitor active branches, modified files, and live `git diff` output across registered host repositories.
+- **Desktop, iOS & Android PWA Access:** Installable directly to iOS (Safari: Share > Add to Home Screen) and Android (Chrome: Install App) as a full-screen app, backed by single-use `HttpOnly` pairing codes so subscription credentials never leave your host PC.
 
-## Persyaratan
+## Requirements
 
-- Node.js 24 LTS atau Node.js 26+ (memakai modul standar `node:http`, `node:sqlite`, `node:test`, tanpa dependensi npm eksternal)
+- Node.js 24 LTS or Node.js 26+ (uses built-in `node:http`, `node:sqlite`, and `node:test`)
 - Git
 
-## Menjalankan
+## Quick Start
 
 ```powershell
 cd D:\reverse-engineering\workspace\plure
@@ -23,12 +23,12 @@ npm run build
 npm start -- --lan
 ```
 
-Buka URL pairing lokal yang tampil di terminal pada browser PC Anda, atau klik tombol **Sambungkan HP** di pojok kanan atas dashboard untuk membuat kode sekali pakai bagi perangkat HP.
+Open the printed local pairing URL once in your desktop browser. To connect and install on your phone, click **Connect Phone** in the top bar (use local Wi-Fi with `--lan`, or Tailscale for remote cellular access anywhere).
 
-## Menghubungkan Langganan AI di Komputer Host
+## Host CLI Subscriptions
 
-Jalankan login satu kali pada terminal komputer host (kredensial tetap berada di komputer Anda):
+Authenticate once on your host machine terminal (credentials stay on your computer):
 
-- **Devin CLI (COO Kimi):** `devin auth login`
+- **Devin CLI (Kimi COO):** `devin auth login`
 - **Claude Code:** `claude auth login`
 - **Antigravity:** `agy login`

@@ -1,0 +1,17 @@
+{
+  "name": "Plure Orchestration Studio",
+  "short_name": "Plure",
+  "description": "Multi-AI repository coding orchestrator with Devin Kimi COO, Claude Code, and Antigravity.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08111f",
+  "theme_color": "#08111f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

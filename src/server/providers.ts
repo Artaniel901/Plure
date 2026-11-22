@@ -56,7 +56,10 @@ export const DEFAULT_ROLE_ASSIGNMENTS: Record<
   researcher: { providerId: "antigravity", model: "gemini-2.5-pro" },
 };
 
-function resolveExecutable(candidates: ReadonlyArray<string>, fallbackPaths: ReadonlyArray<string> = []): string | null {
+function resolveExecutable(
+  candidates: ReadonlyArray<string>,
+  fallbackPaths: ReadonlyArray<string> = [],
+): string | null {
   for (const fullPath of fallbackPaths) {
     if (fs.existsSync(fullPath)) return fullPath;
   }
@@ -90,12 +93,12 @@ function checkVersionClean(binaryPath: string, args: ReadonlyArray<string>): boo
 export function probeProviders(): ReadonlyArray<ProviderStatus> {
   const devinBin = resolveExecutable(["devin"], KNOWN_DEVIN_PATHS);
   let devinAuth = false;
-  let devinSummary = "CLI belum terpasang di PATH";
+  let devinSummary = "CLI not installed in PATH";
   if (devinBin) {
     devinAuth = checkVersionClean(devinBin, ["models", "list", "--format", "json"]);
     devinSummary = devinAuth
-      ? "Siap dipakai (Devin CLI login aktif)"
-      : "Terpasang, perlu jalankan auth login di host";
+      ? "Ready (active Devin CLI login detected)"
+      : "Installed, run auth login on host machine";
   }
 
   const claudeBin = resolveExecutable(["claude"]);
@@ -104,10 +107,10 @@ export function probeProviders(): ReadonlyArray<ProviderStatus> {
   );
   const claudeAuth = Boolean(claudeBin && (claudeConfigExists || process.env.ANTHROPIC_API_KEY));
   const claudeSummary = !claudeBin
-    ? "CLI Claude Code belum terpasang di PATH"
+    ? "Claude Code CLI not installed in PATH"
     : claudeAuth
-      ? "Siap dipakai (kredensial lokal terdeteksi)"
-      : "Terpasang, perlu claude auth login";
+      ? "Ready (local subscription credentials detected)"
+      : "Installed, run claude auth login on host";
 
   const agyBin = resolveExecutable(["agy", "antigravity"]);
   const geminiBridgeExists = fs.existsSync(
@@ -115,16 +118,16 @@ export function probeProviders(): ReadonlyArray<ProviderStatus> {
   );
   const agyInstalled = Boolean(agyBin || geminiBridgeExists);
   const agySummary = agyBin
-    ? "Runtime Antigravity CLI terdeteksi"
+    ? "Antigravity CLI runtime detected"
     : geminiBridgeExists
-      ? "Terhubung via jembatan lokal ai-bridge"
-      : "CLI Antigravity belum terpasang";
+      ? "Connected through local ai-bridge"
+      : "Antigravity CLI not installed";
 
   return [
     {
       id: "devin",
       name: "Devin CLI",
-      subscriptionNote: "Langganan Devin / Kimi COO",
+      subscriptionNote: "Devin / Kimi COO Subscription",
       binaryPath: devinBin,
       installed: Boolean(devinBin),
       authenticated: devinAuth,
@@ -135,7 +138,7 @@ export function probeProviders(): ReadonlyArray<ProviderStatus> {
     {
       id: "claude",
       name: "Claude Code",
-      subscriptionNote: "Langganan Claude Pro / Max",
+      subscriptionNote: "Claude Pro / Max Subscription",
       binaryPath: claudeBin,
       installed: Boolean(claudeBin),
       authenticated: claudeAuth,
@@ -146,8 +149,12 @@ export function probeProviders(): ReadonlyArray<ProviderStatus> {
     {
       id: "antigravity",
       name: "Antigravity",
-      subscriptionNote: "Langganan Google / Gemini",
-      binaryPath: agyBin ?? (geminiBridgeExists ? "D:\\reverse-engineering\\.agentic\\tools\\ai-bridge\\bridge.py" : null),
+      subscriptionNote: "Google / Gemini Subscription",
+      binaryPath:
+        agyBin ??
+        (geminiBridgeExists
+          ? "D:\\reverse-engineering\\.agentic\\tools\\ai-bridge\\bridge.py"
+          : null),
       installed: agyInstalled,
       authenticated: agyInstalled,
       authSummary: agySummary,
@@ -176,11 +183,11 @@ export async function runProviderTurn(input: {
   if (!bin || !input.provider.installed || !input.provider.authenticated) {
     return {
       ok: false,
-      output: `[SIMULASI RENCANA: ${input.provider.name} belum login langsung] Jalankan ${input.provider.loginCommand} di komputer host untuk eksekusi CLI langsung.`,
+      output: `[PLAN SIMULATION: ${input.provider.name} is not logged in yet] Run ${input.provider.loginCommand} on the host machine to enable direct CLI execution.`,
     };
   }
 
-  let cmd = bin;
+  const cmd = bin;
   let args: string[] = [];
   if (input.provider.id === "devin") {
     args = ["--model", input.model, "--respect-workspace-trust", "false", "-p", input.prompt];
@@ -190,7 +197,7 @@ export async function runProviderTurn(input: {
     if (bin.endsWith(".py")) {
       return {
         ok: true,
-        output: `[Jembatan Lokal Antigravity · ${input.model}] Paket riset disiapkan untuk workspace ${path.basename(input.cwd)}.`,
+        output: `[Antigravity Local Bridge (${input.model})] Research packet prepared for workspace ${path.basename(input.cwd)}.`,
       };
     }
     args = ["run", "--model", input.model, input.prompt];
@@ -206,21 +213,21 @@ export async function runProviderTurn(input: {
     const chunks: Buffer[] = [];
     const timer = setTimeout(() => {
       child.kill();
-      resolve({ ok: false, output: "Batas waktu eksekusi CLI tercapai." });
+      resolve({ ok: false, output: "CLI execution timed out." });
     }, input.timeoutMs ?? 45_000);
 
     child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => chunks.push(chunk));
     child.on("error", (err) => {
       clearTimeout(timer);
-      resolve({ ok: false, output: `Gagal menjalankan CLI: ${err.message}` });
+      resolve({ ok: false, output: `Failed to launch CLI: ${err.message}` });
     });
     child.on("close", (code) => {
       clearTimeout(timer);
       const text = Buffer.concat(chunks).toString("utf8").trim();
       resolve({
         ok: code === 0,
-        output: text || `Proses selesai dengan kode keluar ${code ?? -1}.`,
+        output: text || `Process exited with status ${code ?? -1}.`,
       });
     });
   });

@@ -21,11 +21,11 @@ const handle = await createPlureServer({
 });
 
 const localPairUrl = `http://127.0.0.1:${handle.port}/#pair=${encodeURIComponent(handle.bootstrapToken)}`;
-console.log(`Plure Orchestration Studio aktif di http://${host}:${handle.port}`);
-console.log(`URL Pairing Lokal (sekali buka di browser): ${localPairUrl}`);
+console.log(`Plure Orchestration Studio listening on http://${host}:${handle.port}`);
+console.log(`Local Pairing URL (open once in browser): ${localPairUrl}`);
 if (allowLan && handle.networkAddresses.length > 0) {
   for (const origin of handle.networkAddresses) {
-    console.log(`URL Pairing Jaringan/HP: ${origin}/#pair=${encodeURIComponent(handle.bootstrapToken)}`);
+    console.log(`LAN / Phone Pairing URL: ${origin}/#pair=${encodeURIComponent(handle.bootstrapToken)}`);
   }
 }
 

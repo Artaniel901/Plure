@@ -43,6 +43,7 @@ const MIME_BY_EXT: Record<string, string> = {
   ".mjs": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".ico": "image/x-icon",
 };
 
@@ -73,14 +74,14 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     total += buf.length;
     if (total > 256 * 1024) {
-      throw new Error("Ukuran request melebihi batas 256 KB.");
+      throw new Error("Request body exceeds the 256 KB limit.");
     }
     chunks.push(buf);
   }
   if (chunks.length === 0) return {};
   const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Payload JSON harus berupa objek.");
+    throw new Error("JSON payload must be an object.");
   }
   return parsed as Record<string, unknown>;
 }
@@ -173,7 +174,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
       if (pathname.startsWith("/api/")) {
         if (method !== "GET" && method !== "HEAD") {
           if (req.headers["x-plure-request"] !== "1") {
-            sendJson(res, 403, { error: "Header keamanan X-Plure-Request wajib disertakan." });
+            sendJson(res, 403, { error: "Missing required security header X-Plure-Request." });
             return;
           }
         }
@@ -193,7 +194,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
           const matchedInvite = !matchedBootstrap && candidate.length > 0 && store.consumeInvite(candidate);
 
           if (!matchedBootstrap && !matchedInvite) {
-            sendJson(res, 401, { error: "Kode pairing tidak valid atau sudah kedaluwarsa." });
+            sendJson(res, 401, { error: "Invalid or expired pairing code." });
             return;
           }
 
@@ -211,7 +212,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
 
         const cookies = parseCookies(req.headers.cookie);
         if (!store.verifySession(cookies.plure_session)) {
-          sendJson(res, 401, { error: "Sesi belum terautentikasi. Pair perangkat terlebih dahulu." });
+          sendJson(res, 401, { error: "Unauthenticated session. Pair this device first." });
           return;
         }
 
@@ -245,7 +246,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
 
         if (pathname === "/api/auth/invite" && method === "POST") {
           const body = await readJsonBody(req);
-          const label = typeof body.label === "string" ? body.label.trim() : "Perangkat HP";
+          const label = typeof body.label === "string" ? body.label.trim() : "Mobile Device";
           const invite = store.createInvite(label);
           sendJson(res, 201, {
             code: invite.code,
@@ -263,7 +264,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
           const providerId = typeof body.providerId === "string" ? body.providerId : "";
           const model = typeof body.model === "string" ? body.model.trim() : "";
           if (!isKnownRole(role) || !isKnownProvider(providerId) || model.length === 0) {
-            sendJson(res, 400, { error: "Pilihan peran, provider, atau model tidak valid." });
+            sendJson(res, 400, { error: "Invalid role, provider, or model selection." });
             return;
           }
           const roles = store.updateRole(role, providerId, model);
@@ -294,7 +295,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
             sendJson(res, 201, { workspace });
           } catch (err) {
             sendJson(res, 400, {
-              error: err instanceof Error ? err.message : "Gagal mendaftarkan repository.",
+              error: err instanceof Error ? err.message : "Failed to register repository.",
             });
           }
           return;
@@ -304,7 +305,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
         if (diffMatch && method === "GET") {
           const ws = store.getWorkspace(decodeURIComponent(diffMatch[1]!));
           if (!ws) {
-            sendJson(res, 404, { error: "Workspace tidak ditemukan." });
+            sendJson(res, 404, { error: "Workspace not found." });
             return;
           }
           const fileParam = reqUrl.searchParams.get("file") ?? undefined;
@@ -313,7 +314,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
             sendJson(res, 200, { diff });
           } catch (err) {
             sendJson(res, 400, {
-              error: err instanceof Error ? err.message : "Gagal membaca diff Git.",
+              error: err instanceof Error ? err.message : "Failed to read Git diff.",
             });
           }
           return;
@@ -327,11 +328,11 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
 
           const ws = store.getWorkspace(workspaceId);
           if (!ws) {
-            sendJson(res, 400, { error: "Pilih repository Git terlebih dahulu." });
+            sendJson(res, 400, { error: "Select a Git repository first." });
             return;
           }
           if (objective.length === 0 || objective.length > 8000) {
-            sendJson(res, 400, { error: "Tujuan coding wajib diisi (maksimal 8.000 karakter)." });
+            sendJson(res, 400, { error: "Coding objective is required (up to 8,000 characters)." });
             return;
           }
 
@@ -340,9 +341,9 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
           const providers = probeProviders();
           const providerMap = new Map(providers.map((p) => [p.id, p]));
 
-          let cooSummary = `[RENCANA COO · ${roles.coo.providerId}/${roles.coo.model}] Memecah objektif pada branch "${snap.branch}" (${snap.changedFiles.length} file berubah): 1) Audit arsitektur & risiko oleh Researcher, 2) Perubahan terarah oleh Implementer di worktree aman, 3) Verifikasi test & diff oleh COO.`;
-          let researchDetail = `Memetakan ketergantungan simbol dan batas keamanan di ${ws.label} (${snap.headSha}) untuk: "${objective}".`;
-          let implDetail = `Menyiapkan paket perubahan kode dan pengujian fokus pada ${ws.label} menggunakan ${roles.implementer.model}.`;
+          let cooSummary = `[COO PLAN (${roles.coo.providerId}/${roles.coo.model})] Decomposing objective on branch "${snap.branch}" (${snap.changedFiles.length} modified files): 1) Architecture & boundary review by Researcher, 2) Scoped edits & unit tests by Implementer in an isolated worktree, 3) Final verification & diff review by COO.`;
+          const researchDetail = `Mapping symbol dependencies and security boundaries in ${ws.label} (${snap.headSha}) for: "${objective}".`;
+          const implDetail = `Preparing scoped code changes and focused tests in ${ws.label} using ${roles.implementer.model}.`;
           let stepStatus: "simulated" | "completed" = "simulated";
 
           if (executionMode === "cli") {
@@ -350,7 +351,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
             const resTurn = await runProviderTurn({
               provider: cooProv,
               model: roles.coo.model,
-              prompt: `Sebagai COO repository ${ws.label}, susun langkah ringkas untuk: ${objective}`,
+              prompt: `As the COO for repository ${ws.label}, outline a concise execution plan for: ${objective}`,
               cwd: ws.rootPath,
             });
             cooSummary = resTurn.output;
@@ -366,7 +367,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
             steps: [
               {
                 role: "coo",
-                title: "Dekomposisi & Rute Orkestrasi COO",
+                title: "COO Decomposition & Orchestration Route",
                 providerId: roles.coo.providerId,
                 model: roles.coo.model,
                 status: stepStatus,
@@ -374,7 +375,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
               },
               {
                 role: "researcher",
-                title: "Delegasi Riset & Review Konteks",
+                title: "Delegated Research & Context Audit",
                 providerId: roles.researcher.providerId,
                 model: roles.researcher.model,
                 status: "simulated",
@@ -382,7 +383,7 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
               },
               {
                 role: "implementer",
-                title: "Delegasi Implementasi & Test",
+                title: "Delegated Implementation & Tests",
                 providerId: roles.implementer.providerId,
                 model: roles.implementer.model,
                 status: "simulated",
@@ -390,12 +391,12 @@ export async function createPlureServer(options: PlureServerOptions = {}): Promi
               },
               {
                 role: "coo",
-                title: "Gerbang Verifikasi & Sintesis Akhir",
+                title: "Verification Gate & Final Synthesis",
                 providerId: roles.coo.providerId,
                 model: roles.coo.model,
                 status: stepStatus,
                 detail:
-                  "Menunggu persetujuan operator sebelum menulis perubahan destruktif atau menjalankan push.",
+                  "Awaiting operator review before applying destructive operations or pushing changes.",
               },
             ],
           });

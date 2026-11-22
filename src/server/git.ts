@@ -25,13 +25,13 @@ export function assertAllowedGitRepository(
   allowedRoots: ReadonlyArray<string>,
 ): string {
   if (!rawPath || typeof rawPath !== "string") {
-    throw new Error("Path repository wajib diisi.");
+    throw new Error("Repository path is required.");
   }
   let realPath: string;
   try {
     realPath = fs.realpathSync(rawPath.trim());
   } catch {
-    throw new Error("Direktori repository tidak ditemukan di komputer host.");
+    throw new Error("Repository directory does not exist on the host machine.");
   }
 
   const normalizedTarget = normalizeForCompare(realPath);
@@ -49,12 +49,12 @@ export function assertAllowedGitRepository(
   });
 
   if (!insideAllowed) {
-    throw new Error("Path berada di luar direktori kerja yang diizinkan server.");
+    throw new Error("Repository path is outside the server's allowed workspace roots.");
   }
 
   const stat = fs.statSync(realPath);
   if (!stat.isDirectory()) {
-    throw new Error("Target bukan direktori.");
+    throw new Error("Target path is not a directory.");
   }
 
   try {
@@ -65,10 +65,10 @@ export function assertAllowedGitRepository(
       windowsHide: true,
     }).trim();
     if (inside !== "true") {
-      throw new Error("Bukan Git working tree.");
+      throw new Error("Not a Git working tree.");
     }
   } catch {
-    throw new Error("Direktori tersebut bukan repository Git yang valid.");
+    throw new Error("Directory is not a valid Git repository.");
   }
 
   return realPath;
@@ -88,7 +88,7 @@ export function inspectGitRepository(canonicalPath: string): GitSnapshot {
     branch = "unknown";
   }
 
-  let headSha = "belum-ada-commit";
+  let headSha = "uncommitted";
   try {
     headSha = execFileSync("git", ["rev-parse", "--short=8", "HEAD"], {
       cwd: canonicalPath,
@@ -148,7 +148,7 @@ export function readRepositoryDiff(canonicalPath: string, relativeFile?: string)
   if (relativeFile && relativeFile.trim().length > 0) {
     const cleaned = relativeFile.trim().replace(/\\/g, "/");
     if (cleaned.startsWith("/") || cleaned.includes("..") || path.isAbsolute(cleaned)) {
-      throw new Error("Nama file diff tidak valid.");
+      throw new Error("Invalid file path for diff inspection.");
     }
     args.push("--", cleaned);
   }
@@ -175,9 +175,9 @@ export function readRepositoryDiff(canonicalPath: string, relativeFile?: string)
       fs.statSync(candidate).isFile()
     ) {
       const preview = fs.readFileSync(candidate, "utf8").slice(0, 16_000);
-      return `# File baru / belum terkomit: ${relativeFile}\n\n${preview}`;
+      return `# Untracked file preview: ${relativeFile}\n\n${preview}`;
     }
   }
 
-  return "Tidak ada perubahan baris pada target ini.";
+  return "No line changes detected for this target.";
 }

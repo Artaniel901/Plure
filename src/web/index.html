@@ -1,9 +1,16 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Plure: Orkestrasi Coding Multi-AI</title>
+    <meta name="theme-color" content="#08111f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Plure" />
+    <title>Plure: Multi-AI Repository Orchestration</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -12,14 +19,14 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-cluster">
-          <a href="#main-stage" class="skip-link">Lewati ke ruang kerja utama</a>
+          <a href="#main-stage" class="skip-link">Skip to main workspace</a>
           <span class="brand-mark">Plure</span>
-          <span id="repo-pill" class="status-pill" aria-live="polite">Memuat ruang kerja...</span>
+          <span id="repo-pill" class="status-pill" aria-live="polite">Loading workspace...</span>
         </div>
 
         <div class="topbar-actions">
           <button type="button" id="btn-open-pair-modal" class="btn btn-secondary">
-            Sambungkan HP
+            Connect Phone
           </button>
           <button
             type="button"
@@ -27,28 +34,28 @@
             class="btn btn-ghost"
             aria-pressed="true"
           >
-            Animasi: Aktif
+            Motion: On
           </button>
           <button
             type="button"
             id="btn-toggle-theme"
             class="btn btn-ghost"
-            aria-label="Ganti tema gelap atau terang"
+            aria-label="Toggle dark or light theme"
           >
-            Tema: Gelap
+            Theme: Dark
           </button>
         </div>
       </header>
 
       <section id="pair-gate" class="pair-gate" hidden aria-labelledby="pair-gate-heading">
         <div class="surface-panel pair-panel">
-          <h1 id="pair-gate-heading">Hubungkan Perangkat ke Server Plure</h1>
+          <h1 id="pair-gate-heading">Pair This Device with Plure Server</h1>
           <p class="lead-copy">
-            Kredensial langganan AI tetap tersimpan di komputer host. Masukkan kode pairing sekali pakai dari terminal host atau panel Sambungkan HP untuk membuka kendali repository.
+            Your AI subscription credentials never leave the host machine. Enter a one-time pairing code from the host terminal or Connect Phone panel to unlock repository control.
           </p>
           <form id="form-pair" action="/api/auth/pair" method="post" novalidate>
             <div class="field-group">
-              <label for="pair-token">Kode Pairing Server <span aria-hidden="true">*</span></label>
+              <label for="pair-token">Server Pairing Code <span aria-hidden="true">*</span></label>
               <input
                 id="pair-token"
                 name="token"
@@ -59,26 +66,26 @@
                 autocapitalize="none"
                 spellcheck="false"
                 enterkeyhint="done"
-                placeholder="Tempel kode pairing dari terminal host"
+                placeholder="Paste one-time pairing code"
                 aria-describedby="pair-hint pair-error"
               />
               <span id="pair-hint" class="field-hint">
-                Jika Anda membuka URL pairing langsung dari terminal, perangkat akan terhubung otomatis.
+                Opening a direct pairing URL from the host terminal pairs this browser automatically.
               </span>
             </div>
             <div class="field-group">
-              <label for="pair-device">Nama Perangkat</label>
+              <label for="pair-device">Device Label</label>
               <input
                 id="pair-device"
                 name="deviceLabel"
                 type="text"
                 maxlength="60"
-                placeholder="Misalnya: Browser PC atau HP Android"
+                placeholder="Example: Desktop Browser or iPhone"
               />
             </div>
             <p id="pair-error" role="alert" class="error-banner" hidden></p>
             <button type="submit" id="btn-submit-pair" class="btn btn-primary">
-              Buka Dashboard Plure
+              Unlock Plure Studio
             </button>
           </form>
         </div>
@@ -86,7 +93,7 @@
 
       <main id="main-stage" class="command-deck" hidden>
         <div id="global-loading" role="status" class="surface-panel state-box">
-          Memuat katalog model, status CLI, dan repository Git...
+          Loading model catalogs, CLI subscription status, and Git repositories...
         </div>
         <div id="global-error" role="alert" class="surface-panel error-banner" hidden></div>
 
@@ -98,62 +105,62 @@
           <div class="surface-panel">
             <div class="section-head">
               <div>
-                <h1 id="stage-heading">Meja Kendali Orkestrasi Repository</h1>
+                <h1 id="stage-heading">Repository Orchestration Deck</h1>
                 <p class="muted-copy">
-                  Ubah model COO dan pekerja secara langsung kapan saja. COO memimpin pembagian tugas coding ke implementer dan periset tanpa memindahkan kredensial ke browser.
+                  Switch COO and worker models live at any moment. Your COO coordinates implementation and research tasks while keeping CLI subscriptions on the host computer.
                 </p>
               </div>
             </div>
 
             <form id="form-mission" action="/api/missions" method="post" novalidate>
               <div class="field-group">
-                <label for="select-workspace">Repository Aktif <span aria-hidden="true">*</span></label>
+                <label for="select-workspace">Active Repository <span aria-hidden="true">*</span></label>
                 <select id="select-workspace" name="workspaceId" required></select>
               </div>
 
               <fieldset class="role-switchboard">
-                <legend>Pemilih Model Langsung (Live Role Switchboard)</legend>
+                <legend>Live Role &amp; Model Switchboard</legend>
                 <div class="role-grid">
                   <div class="role-slot" data-role-slot="coo">
                     <div class="role-header">
-                      <h2>COO Koordinator</h2>
+                      <h2>COO Coordinator</h2>
                       <span id="badge-coo" class="role-badge">Devin</span>
                     </div>
-                    <p class="role-desc">Memecah misi, mengatur delegasi, dan memverifikasi hasil akhir.</p>
-                    <label for="provider-coo">Provider COO</label>
+                    <p class="role-desc">Breaks down objectives, delegates tasks, and verifies outcomes.</p>
+                    <label for="provider-coo">COO Provider</label>
                     <select id="provider-coo" name="cooProvider"></select>
-                    <label for="model-coo">Model COO</label>
+                    <label for="model-coo">COO Model</label>
                     <select id="model-coo" name="cooModel"></select>
                   </div>
 
                   <div class="role-slot" data-role-slot="implementer">
                     <div class="role-header">
-                      <h2>Implementer Kode</h2>
+                      <h2>Code Implementer</h2>
                       <span id="badge-implementer" class="role-badge">Claude</span>
                     </div>
-                    <p class="role-desc">Menulis perubahan kode terfokus dan menjalankan pengujian.</p>
-                    <label for="provider-implementer">Provider Implementer</label>
+                    <p class="role-desc">Writes scoped repository edits and runs targeted checks.</p>
+                    <label for="provider-implementer">Implementer Provider</label>
                     <select id="provider-implementer" name="implProvider"></select>
-                    <label for="model-implementer">Model Implementer</label>
+                    <label for="model-implementer">Implementer Model</label>
                     <select id="model-implementer" name="implModel"></select>
                   </div>
 
                   <div class="role-slot" data-role-slot="researcher">
                     <div class="role-header">
-                      <h2>Riset dan Audit</h2>
+                      <h2>Research &amp; Review</h2>
                       <span id="badge-researcher" class="role-badge">Antigravity</span>
                     </div>
-                    <p class="role-desc">Menelusuri arsitektur repo, dependensi, dan celah regresi.</p>
-                    <label for="provider-researcher">Provider Riset</label>
+                    <p class="role-desc">Traces architecture, dependencies, and regression risks.</p>
+                    <label for="provider-researcher">Research Provider</label>
                     <select id="provider-researcher" name="resProvider"></select>
-                    <label for="model-researcher">Model Riset</label>
+                    <label for="model-researcher">Research Model</label>
                     <select id="model-researcher" name="resModel"></select>
                   </div>
                 </div>
               </fieldset>
 
               <fieldset class="mode-fieldset">
-                <legend>Mode Eksekusi Misi</legend>
+                <legend>Execution Mode</legend>
                 <div class="radio-row">
                   <div class="radio-item">
                     <input
@@ -163,18 +170,18 @@
                       value="plan"
                       checked
                     />
-                    <label for="mode-plan">Susun Rencana Orkestrasi (Aman, tanpa eksekusi shell)</label>
+                    <label for="mode-plan">Orchestration Plan Preview (Safe, zero shell execution)</label>
                   </div>
                   <div class="radio-item">
                     <input type="radio" id="mode-cli" name="executionMode" value="cli" />
-                    <label for="mode-cli">Jalankan Langsung di CLI Host (Butuh login CLI aktif)</label>
+                    <label for="mode-cli">Execute on Host CLI (Requires active CLI login)</label>
                   </div>
                 </div>
               </fieldset>
 
               <div class="field-group">
                 <label for="mission-objective">
-                  Instruksi Coding untuk COO <span aria-hidden="true">*</span>
+                  Coding Objective for COO <span aria-hidden="true">*</span>
                 </label>
                 <textarea
                   id="mission-objective"
@@ -182,11 +189,11 @@
                   rows="4"
                   required
                   maxlength="8000"
-                  placeholder="Contoh: Audit modul autentikasi, delegasikan perbaikan validasi token ke Claude, dan minta Antigravity memeriksa regresi diff."
+                  placeholder="Example: Audit authentication token handling, delegate validation fixes to Claude, and have Antigravity review the diff."
                   aria-describedby="mission-hint mission-error"
                 ></textarea>
                 <span id="mission-hint" class="field-hint">
-                  Pergantian model di atas langsung tersimpan di server dan berlaku seketika untuk giliran baru maupun misi berjalan.
+                  Model selections save immediately on the server and apply to both new dispatches and active missions.
                 </span>
               </div>
 
@@ -194,7 +201,7 @@
 
               <div class="form-actions">
                 <button type="submit" id="btn-launch-mission" class="btn btn-primary">
-                  Kirim Misi ke COO
+                  Dispatch Mission to COO
                 </button>
               </div>
             </form>
@@ -203,9 +210,9 @@
           <section class="surface-panel" aria-labelledby="timeline-heading">
             <div class="section-head">
               <div>
-                <h2 id="timeline-heading">Aliran Misi dan Pergantian Model Tengah Jalan</h2>
+                <h2 id="timeline-heading">Mission Stream &amp; Live Mid-Run Model Switching</h2>
                 <p class="muted-copy">
-                  Setiap misi menampilkan paket kerja COO, periset, dan implementer, serta memungkinkan alih model langsung di tengah sesi.
+                  Inspect delegated packets across COO, Researcher, and Implementer, and switch any role's model mid-session.
                 </p>
               </div>
             </div>
@@ -219,14 +226,14 @@
           aria-labelledby="repo-inspector-heading"
         >
           <section class="surface-panel" id="section-repos">
-            <h2 id="repo-inspector-heading">Repository dan Pemeriksa Diff Git</h2>
+            <h2 id="repo-inspector-heading">Repositories &amp; Git Diff Inspector</h2>
             <p class="muted-copy">
-              Daftarkan folder Git lokal pada komputer host untuk dipantau dan diedit dari desktop atau HP.
+              Register local Git repositories on the host machine to monitor branches and inspect diffs from desktop or phone.
             </p>
 
             <form id="form-workspace" action="/api/workspaces" method="post" class="compact-form" novalidate>
               <div class="field-group">
-                <label for="workspace-path">Path Repository di Komputer Host <span aria-hidden="true">*</span></label>
+                <label for="workspace-path">Host Repository Path <span aria-hidden="true">*</span></label>
                 <input
                   id="workspace-path"
                   name="path"
@@ -240,7 +247,7 @@
                 />
               </div>
               <div class="field-group">
-                <label for="workspace-label">Label Singkat</label>
+                <label for="workspace-label">Short Label</label>
                 <input
                   id="workspace-label"
                   name="label"
@@ -250,7 +257,7 @@
                 />
               </div>
               <p id="workspace-error" role="alert" class="error-banner" hidden></p>
-              <button type="submit" class="btn btn-secondary">Daftarkan Repository</button>
+              <button type="submit" class="btn btn-secondary">Register Repository</button>
             </form>
 
             <div id="repo-summary" class="repo-summary"></div>
@@ -258,32 +265,32 @@
               id="diff-viewer"
               class="diff-viewer"
               role="region"
-              aria-label="Pratinjau git diff"
+              aria-label="Git diff preview"
               tabindex="0"
             >
-              Pilih file yang berubah untuk membaca git diff secara langsung.
+              Select a modified file chip above to inspect its live Git diff.
             </div>
           </section>
 
           <section class="surface-panel" id="section-providers" aria-labelledby="providers-heading">
-            <h2 id="providers-heading">Status Langganan CLI Host</h2>
+            <h2 id="providers-heading">Host CLI Subscriptions</h2>
             <p class="muted-copy">
-              Plure memakai sesi CLI resmi milik Anda sendiri tanpa menjual ulang token dan tanpa meminta API key di browser.
+              Plure drives your own authenticated CLI subscriptions on the host machine without reselling tokens or asking for API keys in the browser.
             </p>
             <div id="providers-list" class="providers-list"></div>
           </section>
         </aside>
       </main>
 
-      <nav class="mobile-dock" id="mobile-dock" aria-label="Navigasi tampilan seluler" hidden>
+      <nav class="mobile-dock" id="mobile-dock" aria-label="Mobile workspace views" hidden>
         <button type="button" class="dock-btn is-active" data-mobile-tab="orchestrate">
-          Orkestrasi
+          Orchestrate
         </button>
         <button type="button" class="dock-btn" data-mobile-tab="repos">
-          Repo dan Diff
+          Repo &amp; Diff
         </button>
         <button type="button" class="dock-btn" data-mobile-tab="providers">
-          Langganan AI
+          Subscriptions
         </button>
       </nav>
     </div>
@@ -291,17 +298,17 @@
     <dialog id="dialog-mobile-pair" aria-labelledby="dialog-pair-title">
       <div class="dialog-body">
         <div class="dialog-header">
-          <h2 id="dialog-pair-title">Buka Plure dari HP Anda</h2>
+          <h2 id="dialog-pair-title">Open &amp; Install Plure on Your Phone</h2>
           <button type="button" id="btn-close-pair-modal" class="btn btn-ghost">
-            Tutup
+            Close
           </button>
         </div>
         <p class="muted-copy">
-          Buat kode pairing sekali pakai (berlaku 15 menit). Untuk akses dari luar jaringan rumah, aktifkan Tailscale pada PC dan HP atau jalankan server dengan argumen <code>--lan</code> di Wi-Fi yang sama.
+          Generate a single-use pairing code (valid for 15 minutes). On iOS (Safari: Share &gt; Add to Home Screen) or Android (Chrome: Install App), Plure installs as a full-screen standalone app. Use Tailscale for remote cellular access or <code>--lan</code> on local Wi-Fi.
         </p>
         <div class="form-actions">
           <button type="button" id="btn-generate-invite" class="btn btn-primary">
-            Buat Kode Pairing HP Baru
+            Generate One-Time Phone Code
           </button>
         </div>
         <div id="invite-output" class="invite-output" aria-live="polite" hidden></div>

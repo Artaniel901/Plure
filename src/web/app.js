@@ -20,7 +20,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", state.theme);
   localStorage.setItem("plure_theme", state.theme);
   el("btn-toggle-theme").textContent =
-    state.theme === "dark" ? "Tema: Gelap" : "Tema: Terang";
+    state.theme === "dark" ? "Theme: Dark" : "Theme: Light";
   backdrop.setTheme(state.theme);
 }
 
@@ -28,7 +28,7 @@ function updateMotionButton() {
   const on = backdrop.isEnabled();
   const btn = el("btn-toggle-motion");
   btn.setAttribute("aria-pressed", String(on));
-  btn.textContent = on ? "Animasi: Aktif" : "Animasi: Jeda";
+  btn.textContent = on ? "Motion: On" : "Motion: Paused";
 }
 
 async function apiRequest(url, options = {}) {
@@ -40,7 +40,7 @@ async function apiRequest(url, options = {}) {
   const res = await fetch(url, { ...options, headers });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(payload.error || `Permintaan gagal (${res.status})`);
+    const err = new Error(payload.error || `Request failed (${res.status})`);
     err.status = res.status;
     throw err;
   }
@@ -70,7 +70,7 @@ function renderRoleSelectors() {
       ...state.providers.map((p) => {
         const opt = document.createElement("option");
         opt.value = p.id;
-        opt.textContent = `${p.name} (${p.authenticated ? "Siap" : "Simulasi"})`;
+        opt.textContent = `${p.name} (${p.authenticated ? "Ready" : "Plan Sim"})`;
         opt.selected = p.id === current.providerId;
         return opt;
       }),
@@ -82,7 +82,7 @@ function renderRoleSelectors() {
     const hasCurrentModel = models.some((m) => m.id === current.model);
     const modelItems = hasCurrentModel
       ? models
-      : [{ id: current.model, label: current.model, tier: "Kustom" }, ...models];
+      : [{ id: current.model, label: current.model, tier: "Custom" }, ...models];
 
     modelSelect.replaceChildren(
       ...modelItems.map((m) => {
@@ -109,11 +109,11 @@ function renderWorkspaces() {
     select.replaceChildren();
     const emptyOpt = document.createElement("option");
     emptyOpt.value = "";
-    emptyOpt.textContent = "Belum ada repository terdaftar";
+    emptyOpt.textContent = "No repositories registered yet";
     select.append(emptyOpt);
-    pill.textContent = "Belum ada repository";
+    pill.textContent = "No repository";
     summary.textContent =
-      "Belum ada repository Git. Tambahkan path repository di atas untuk mulai mengorkestrasi kode.";
+      "No Git repositories registered yet. Add a host repository path above to start orchestrating code.";
     return;
   }
 
@@ -134,18 +134,18 @@ function renderWorkspaces() {
   const active = state.workspaces.find((w) => w.id === state.selectedWorkspaceId);
   if (!active) return;
 
-  pill.textContent = `${active.label} [${active.branch} @ ${active.headSha}] (${active.changedFiles.length} file berubah)`;
+  pill.textContent = `${active.label} [${active.branch} @ ${active.headSha}] (${active.changedFiles.length} modified)`;
 
   summary.replaceChildren();
   const meta = document.createElement("p");
   meta.className = "muted-copy";
-  meta.textContent = `Path aktif: ${active.rootPath} | Branch: ${active.branch} (${active.headSha})`;
+  meta.textContent = `Active path: ${active.rootPath} | Branch: ${active.branch} (${active.headSha})`;
   summary.append(meta);
 
   if (active.changedFiles.length === 0) {
     const cleanMsg = document.createElement("p");
     cleanMsg.className = "field-hint";
-    cleanMsg.textContent = "Working tree bersih: belum ada perubahan file yang belum dikomit.";
+    cleanMsg.textContent = "Clean working tree: no uncommitted file changes.";
     summary.append(cleanMsg);
   } else {
     const chipWrap = document.createElement("div");
@@ -164,14 +164,14 @@ function renderWorkspaces() {
 
 async function loadDiff(workspaceId, filePath) {
   const viewer = el("diff-viewer");
-  viewer.textContent = `Memuat git diff untuk ${filePath}...`;
+  viewer.textContent = `Loading Git diff for ${filePath}...`;
   try {
     const data = await apiRequest(
       `/api/workspaces/${encodeURIComponent(workspaceId)}/diff?file=${encodeURIComponent(filePath)}`,
     );
     viewer.textContent = data.diff;
   } catch (err) {
-    viewer.textContent = err instanceof Error ? err.message : "Gagal memuat diff.";
+    viewer.textContent = err instanceof Error ? err.message : "Failed to load diff.";
   }
 }
 
@@ -189,7 +189,7 @@ function renderProviders() {
     title.textContent = prov.name;
     const status = document.createElement("span");
     status.className = prov.authenticated ? "badge-ok" : "badge-warn";
-    status.textContent = prov.authenticated ? "Siap CLI" : "Perlu Login Host";
+    status.textContent = prov.authenticated ? "CLI Ready" : "Host Login Needed";
     head.append(title, status);
 
     const desc = document.createElement("p");
@@ -213,7 +213,7 @@ function renderMissions() {
     const empty = document.createElement("p");
     empty.className = "muted-copy";
     empty.textContent =
-      "Belum ada misi yang dikirim. Pilih model COO serta pekerja di atas lalu kirim instruksi pertama Anda.";
+      "No missions dispatched yet. Pick your COO and worker models above, then send your first objective.";
     wrap.append(empty);
     return;
   }
@@ -228,7 +228,7 @@ function renderMissions() {
     title.textContent = mission.objective;
     const badge = document.createElement("span");
     badge.className = "role-badge";
-    badge.textContent = `COO aktif: ${mission.cooProviderId} / ${mission.cooModel}`;
+    badge.textContent = `Active COO: ${mission.cooProviderId} / ${mission.cooModel}`;
     meta.append(title, badge);
 
     const stepsList = document.createElement("ol");
@@ -254,19 +254,19 @@ function renderMissions() {
 
     const switchForm = document.createElement("form");
     switchForm.className = "mid-switch-bar";
-    switchForm.setAttribute("aria-label", `Ubah model langsung untuk misi ${mission.id}`);
+    switchForm.setAttribute("aria-label", `Switch model live for mission ${mission.id}`);
 
     const roleDiv = document.createElement("div");
     roleDiv.className = "mini-field";
     const roleLabel = document.createElement("label");
     roleLabel.htmlFor = `mid-role-${mission.id}`;
-    roleLabel.textContent = "Peran di Misi Ini";
+    roleLabel.textContent = "Mission Role";
     const roleSelect = document.createElement("select");
     roleSelect.id = `mid-role-${mission.id}`;
     for (const [val, text] of [
       ["coo", "COO"],
       ["implementer", "Implementer"],
-      ["researcher", "Riset"],
+      ["researcher", "Research"],
     ]) {
       const opt = document.createElement("option");
       opt.value = val;
@@ -279,7 +279,7 @@ function renderMissions() {
     modelDiv.className = "mini-field";
     const modelLabel = document.createElement("label");
     modelLabel.htmlFor = `mid-model-${mission.id}`;
-    modelLabel.textContent = "Alihkan ke Model";
+    modelLabel.textContent = "Switch to Model";
     const modelSelect = document.createElement("select");
     modelSelect.id = `mid-model-${mission.id}`;
     for (const prov of state.providers) {
@@ -295,7 +295,7 @@ function renderMissions() {
     const submitBtn = document.createElement("button");
     submitBtn.type = "submit";
     submitBtn.className = "btn btn-secondary";
-    submitBtn.textContent = "Ubah Model Misi";
+    submitBtn.textContent = "Switch Model Live";
 
     switchForm.addEventListener("submit", async (ev) => {
       ev.preventDefault();
@@ -321,7 +321,7 @@ function renderMissions() {
         renderRoleSelectors();
         renderMissions();
       } catch (err) {
-        showError("global-error", err instanceof Error ? err.message : "Gagal mengubah model misi.");
+        showError("global-error", err instanceof Error ? err.message : "Failed to switch mission model.");
       } finally {
         submitBtn.disabled = false;
       }
@@ -377,7 +377,7 @@ async function loadDashboardState() {
     el("global-loading").hidden = true;
     showError(
       "global-error",
-      err instanceof Error ? err.message : "Gagal memuat status server Plure.",
+      err instanceof Error ? err.message : "Failed to load Plure server state.",
     );
   }
 }
@@ -397,7 +397,7 @@ async function tryFragmentPair() {
   } catch (err) {
     showError(
       "pair-error",
-      err instanceof Error ? err.message : "Token pairing otomatis tidak valid.",
+      err instanceof Error ? err.message : "Automatic pairing token was rejected.",
     );
     return false;
   }
@@ -420,7 +420,7 @@ function bindEvents() {
     const token = tokenInput.value.trim();
     if (!token) {
       tokenInput.setAttribute("aria-invalid", "true");
-      showError("pair-error", "Masukkan kode pairing terlebih dahulu.");
+      showError("pair-error", "Enter a server pairing code first.");
       tokenInput.focus();
       return;
     }
@@ -432,14 +432,14 @@ function bindEvents() {
         method: "POST",
         body: JSON.stringify({
           token,
-          deviceLabel: deviceInput.value.trim() || "Perangkat Web",
+          deviceLabel: deviceInput.value.trim() || "Web Device",
         }),
       });
       showError("pair-error", "");
       await loadDashboardState();
     } catch (err) {
       tokenInput.setAttribute("aria-invalid", "true");
-      showError("pair-error", err instanceof Error ? err.message : "Gagal melakukan pairing.");
+      showError("pair-error", err instanceof Error ? err.message : "Device pairing failed.");
       tokenInput.focus();
     } finally {
       submit.disabled = false;
@@ -492,13 +492,13 @@ function bindEvents() {
     const objectiveInput = el("mission-objective");
     const objective = objectiveInput.value.trim();
     if (!state.selectedWorkspaceId) {
-      showError("mission-error", "Tambahkan dan pilih repository aktif terlebih dahulu.");
+      showError("mission-error", "Register and select an active Git repository first.");
       el("workspace-path").focus();
       return;
     }
     if (!objective) {
       objectiveInput.setAttribute("aria-invalid", "true");
-      showError("mission-error", "Tuliskan instruksi coding untuk COO terlebih dahulu.");
+      showError("mission-error", "Enter a coding objective for the COO first.");
       objectiveInput.focus();
       return;
     }
@@ -509,7 +509,7 @@ function bindEvents() {
     const executionMode = modeRadio ? modeRadio.value : "plan";
     const btn = el("btn-launch-mission");
     btn.disabled = true;
-    btn.textContent = "Mengorkestrasi...";
+    btn.textContent = "Orchestrating...";
     try {
       const created = await apiRequest("/api/missions", {
         method: "POST",
@@ -528,11 +528,11 @@ function bindEvents() {
     } catch (err) {
       showError(
         "mission-error",
-        err instanceof Error ? err.message : "Gagal menjalankan misi COO.",
+        err instanceof Error ? err.message : "Failed to dispatch COO mission.",
       );
     } finally {
       btn.disabled = false;
-      btn.textContent = "Kirim Misi ke COO";
+      btn.textContent = "Dispatch Mission to COO";
     }
   });
 
@@ -548,7 +548,7 @@ function bindEvents() {
     const rawPath = pathInput.value.trim();
     if (!rawPath) {
       pathInput.setAttribute("aria-invalid", "true");
-      showError("workspace-error", "Masukkan path folder repository Git di komputer host.");
+      showError("workspace-error", "Enter a Git repository directory path on the host machine.");
       pathInput.focus();
       return;
     }
@@ -571,7 +571,7 @@ function bindEvents() {
       renderWorkspaces();
     } catch (err) {
       pathInput.setAttribute("aria-invalid", "true");
-      showError("workspace-error", err instanceof Error ? err.message : "Path tidak valid.");
+      showError("workspace-error", err instanceof Error ? err.message : "Invalid repository path.");
       pathInput.focus();
     }
   });
@@ -589,12 +589,12 @@ function bindEvents() {
     try {
       const invite = await apiRequest("/api/auth/invite", {
         method: "POST",
-        body: JSON.stringify({ label: "Perangkat HP" }),
+        body: JSON.stringify({ label: "Phone App" }),
       });
       out.hidden = false;
       out.replaceChildren();
       const codeP = document.createElement("p");
-      codeP.textContent = `Kode sekali pakai: ${invite.code}`;
+      codeP.textContent = `Single-use pairing code: ${invite.code}`;
       out.append(codeP);
       if (invite.lanUrls && invite.lanUrls.length > 0) {
         for (const url of invite.lanUrls) {
@@ -607,13 +607,13 @@ function bindEvents() {
         const note = document.createElement("p");
         note.className = "field-hint";
         note.textContent =
-          "Jalankan server dengan argumen --lan atau gunakan alamat Tailscale PC Anda bersama kode di atas.";
+          "Start the server with --lan for local Wi-Fi, or open your PC's Tailscale URL with the code above.";
         out.append(note);
       }
     } catch (err) {
       out.hidden = false;
       out.textContent =
-        err instanceof Error ? err.message : "Pair perangkat ini dulu sebelum membuat undangan HP.";
+        err instanceof Error ? err.message : "Pair this desktop browser first before generating a phone invite.";
     }
   });
 
@@ -633,6 +633,10 @@ async function bootstrap() {
   applyTheme(state.theme);
   updateMotionButton();
   bindEvents();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }
 
   window.addEventListener("hashchange", async () => {
     const ok = await tryFragmentPair();
